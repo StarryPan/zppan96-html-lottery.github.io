@@ -2,16 +2,19 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
+<!-- 移动设备核心适配：视口设置 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Canvas粒子转盘抽奖</title>
 <style>
-  /* 基础重置 */
+  /* 基础重置：统一盒模型 + 触摸高亮清除 */
   * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
   }
 
-  /* 1. 定义两套主题变量：暗黑（默认）+ 明亮 */
+  /* 1. 主题变量：暗黑/明亮两套方案 */
   :root {
     /* 暗黑主题（默认） */
     --modal-overlay: rgba(0, 0, 0, 0.85);
@@ -30,9 +33,9 @@
     --btn-text: #333;
     --textarea-bg: #222;
     --textarea-border: #ffc107;
+    --transition-base: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
-  /* 明亮主题 */
   :root[data-theme="light"] {
     --modal-overlay: rgba(255, 255, 255, 0.85);
     --modal-bg: #f8f9fa;
@@ -59,14 +62,14 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
+    min-height: 100vh;
     color: var(--text-white);
     font-family: "Microsoft Yahei", Arial, sans-serif;
     overflow: hidden;
-    transition: background 0.5s ease;
+    padding: 15px;
+    transition: var(--transition-base);
   }
 
-  /* 背景浮动动画 */
   @keyframes bgFloat {
     0% { background-position: 0% 0%; }
     100% { background-position: 100% 100%; }
@@ -75,6 +78,8 @@
   .container {
     text-align: center;
     position: relative;
+    width: 100%;
+    max-width: 600px;
     animation: containerBreathe 8s ease-in-out infinite alternate;
   }
 
@@ -83,11 +88,8 @@
     100% { transform: scale(1.02); }
   }
 
-  /* 主题切换按钮 */
-  #themeToggle {
-    position: absolute;
-    top: 10px;
-    left: 0;
+  /* 2. 移动设备按钮适配：增大触摸区域 */
+  .control-btn {
     width: 50px;
     height: 50px;
     border-radius: 50%;
@@ -98,38 +100,56 @@
     background: rgba(255,215,0,0.1);
     border: 1px solid var(--gold-secondary);
     color: var(--gold-primary);
-    transition: all 0.3s ease;
+    transition: var(--transition-base);
     cursor: pointer;
     font-size: 24px;
+    position: absolute;
+    top: 0;
+    /* 移动端防止按钮贴边 */
+    z-index: 10;
   }
 
-  canvas {
+  #themeToggle {
+    left: 0;
+  }
+
+  #settingsBtn {
+    right: 0;
+  }
+
+  /* 3. 响应式Canvas：适配移动屏幕 */
+  #canvas {
     display: block;
     margin: 0 auto;
-    box-shadow: 0 0 30px rgba(255,215,0,0.2), 0 0 60px var(--wheel-shadow);
+    width: 90vw;
+    height: 90vw;
+    max-width: 600px;
+    max-height: 600px;
     border-radius: 50%;
+    box-shadow: 0 0 30px rgba(255,215,0,0.2), 0 0 60px var(--wheel-shadow);
     image-rendering: optimizeQuality;
     image-rendering: -webkit-optimize-contrast;
   }
 
-  /* 按钮样式全面升级 */
+  /* 开始按钮：移动端增大padding */
   #startBtn {
-    margin: 20px 10px 10px;
-    padding: 12px 32px;
+    margin: 20px auto 0;
+    padding: 15px 40px;
     font-size: 18px;
     font-weight: 700;
     border-radius: 50px;
     border: 2px solid var(--gold-primary);
-    cursor: pointer;
     background: linear-gradient(135deg, var(--gold-primary), var(--gold-tertiary));
     color: var(--btn-text);
     box-shadow: 0 4px 15px rgba(255,150,0,.8), 0 0 20px rgba(255,215,0,0.3);
-    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: var(--transition-base);
     position: relative;
     overflow: hidden;
+    display: block;
+    width: 80%;
+    max-width: 300px;
   }
 
-  /* 按钮内部发光动效 */
   #startBtn::after {
     content: "";
     position: absolute;
@@ -147,37 +167,19 @@
     100% { transform: rotate(45deg) translateX(100%); }
   }
 
-  #settingsBtn { 
-    position: absolute; 
-    top: 10px; 
-    right: 0; 
-    font-size: 24px;
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    background: rgba(255,215,0,0.1);
-    border: 1px solid var(--gold-secondary);
-    color: var(--gold-primary);
-    transition: all 0.3s ease;
-    cursor: pointer;
-  }
-
-  textarea { 
-    width: 320px; 
-    height: 220px; 
-    margin-top: 10px; 
-    background: var(--textarea-bg); 
-    color: var(--text-white); 
-    border: 1px solid var(--textarea-border); 
-    border-radius: 8px; 
-    padding: 10px;
+  textarea {
+    width: 100%;
+    max-width: 320px;
+    height: 180px;
+    margin-top: 10px;
+    background: var(--textarea-bg);
+    color: var(--text-white);
+    border: 1px solid var(--textarea-border);
+    border-radius: 8px;
+    padding: 12px;
     font-size: 14px;
     resize: none;
-    transition: all 0.2s ease;
+    transition: var(--transition-base);
   }
 
   textarea:focus {
@@ -186,37 +188,49 @@
     box-shadow: 0 0 10px rgba(255,215,0,0.3);
   }
 
-  /* 弹框样式优化 */
+  /* 4. 弹窗淡入淡出优化：更丝滑的过渡 */
   .modal, .prizeModal {
     position: fixed;
     inset: 0;
     background: var(--modal-overlay);
-    display: none;
+    display: flex;
     justify-content: center;
     align-items: center;
     z-index: 9999;
-    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    /* 核心：淡入淡出 + 毛玻璃过渡 */
+    transition: opacity 0.5s ease, backdrop-filter 0.5s ease;
     opacity: 0;
+    backdrop-filter: blur(0px);
+    pointer-events: none;
+  }
+
+  .modal.active, .prizeModal.active {
+    opacity: 1;
     backdrop-filter: blur(5px);
+    pointer-events: auto;
   }
 
   .modal-box, .prizeModal-box {
     background: var(--modal-bg-gradient);
-    padding: 36px 40px;
+    padding: 30px 25px;
     border-radius: 20px;
     text-align: center;
     box-shadow: 0 0 30px var(--gold-primary), 0 0 60px var(--gold-shadow), 0 8px 24px rgba(0, 0, 0, 0.6);
     border: 2px solid var(--gold-secondary);
     max-width: 90%;
-    width: 420px;
-    transform: scale(0.85) translateY(20px);
-    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    width: 380px;
+    /* 弹窗缩放 + 位移过渡 */
+    transition: var(--transition-base);
+    transform: scale(0.8) translateY(30px);
     position: relative;
     overflow: hidden;
     color: var(--text-white);
   }
 
-  /* 弹框背景装饰 */
+  .modal.active .modal-box, .prizeModal.active .prizeModal-box {
+    transform: scale(1.05) translateY(0);
+  }
+
   .modal-box::before, .prizeModal-box::before {
     content: "";
     position: absolute;
@@ -228,21 +242,11 @@
     pointer-events: none;
   }
 
-  .modal.active, .prizeModal.active {
-    display: flex;
-    opacity: 1;
-  }
-
-  .modal.active .modal-box, .prizeModal.active .prizeModal-box {
-    transform: scale(1.02) translateY(0);
-  }
-
-  /* 标题样式优化 */
   .modal-box h2, .prizeModal-box h2 {
     color: var(--gold-primary);
-    font-size: 28px;
+    font-size: 24px;
     font-weight: 800;
-    margin: 0 0 24px 0;
+    margin: 0 0 20px 0;
     text-shadow: 0 0 15px var(--gold-shadow), 0 2px 4px rgba(0,0,0,0.5);
     background: linear-gradient(135deg, var(--gold-primary), var(--gold-tertiary));
     -webkit-background-clip: text;
@@ -250,12 +254,11 @@
     color: transparent;
   }
 
-  /* 核心优化：清晰+发光的奖励文本样式 */
   #result {
-    font-size: 36px;
+    font-size: 30px;
     font-weight: 800;
     text-align: center;
-    margin: 20px 0 30px;
+    margin: 15px 0 25px;
     background: linear-gradient(135deg, #fff, var(--gold-primary));
     -webkit-background-clip: text;
     background-clip: text;
@@ -263,7 +266,7 @@
     -webkit-text-stroke: 2px var(--gold-dark);
     text-stroke: 2px var(--gold-dark);
     animation: breathe 2s infinite alternate ease-in-out;
-    letter-spacing: 2px;
+    letter-spacing: 1px;
   }
 
   @keyframes breathe {
@@ -272,28 +275,26 @@
       text-shadow: 0 0 10px var(--gold-shadow), 0 0 20px var(--gold-glow);
     }
     100% {
-      transform: scale(1.2);          
+      transform: scale(1.15);
       text-shadow: 0 0 20px var(--gold-shadow), 0 0 40px var(--gold-glow), 0 0 60px var(--gold-primary);
     }
   }
 
-  /* 弹框按钮样式 */
   .modal-box button, .prizeModal-box button {
     background: linear-gradient(135deg, var(--gold-primary), var(--gold-secondary));
     color: var(--btn-text);
     border: none;
     border-radius: 50px;
-    padding: 12px 36px;
+    padding: 12px 30px;
     font-size: 16px;
     font-weight: 700;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: var(--transition-base);
     box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
-    margin: 20px 20px;
+    margin: 25px 25px;
   }
 
-  /* 通用按钮交互效果 */
-  button:hover:not(:disabled) {
+  button:hover:not(:disabled), button:active:not(:disabled) {
     color: #fff;
     background: linear-gradient(135deg, var(--gold-secondary), var(--gold-tertiary));
     box-shadow: 0 6px 20px rgba(255, 215, 0, 0.6);
@@ -311,18 +312,29 @@
     transform: none !important;
     box-shadow: none !important;
   }
+
+  /* 媒体查询：小屏设备进一步优化 */
+  @media screen and (max-width: 375px) {
+    #result {
+      font-size: 26px;
+    }
+    .modal-box, .prizeModal-box {
+      padding: 25px 20px;
+    }
+    #startBtn {
+      padding: 12px 30px;
+      font-size: 16px;
+    }
+  }
 </style>
 </head>
 
 <body>
 <div class="container">
-  <!-- 新增主题切换按钮 -->
-  <button id="themeToggle" title="切换主题">🌓</button>
+  <button id="themeToggle" class="control-btn" title="切换主题">🌓</button>
   <canvas id="canvas" width="600" height="600"></canvas>
-  <div>
-    <button id="startBtn">开始抽奖</button>
-    <button id="settingsBtn" title="配置奖品">⚙️</button>
-  </div>
+  <button id="settingsBtn" class="control-btn" title="配置奖品">⚙️</button>
+  <button id="startBtn">开始抽奖</button>
 </div>
 
 <!-- 中奖弹框 -->
@@ -346,359 +358,328 @@
 </div>
 
 <script>
-// ========== 1. 修复核心语法错误 + 主题切换逻辑 ==========
-// 获取根元素
+// 主题切换逻辑
 const root = document.documentElement;
-// 主题切换按钮
 const themeToggle = document.getElementById('themeToggle');
-// 本地存储的主题（优先级高于系统）
 const savedTheme = localStorage.getItem('appTheme');
 
-// 检测系统主题偏好
 function detectSystemTheme() {
   return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
 }
 
-// 设置主题
 function setTheme(theme) {
   root.setAttribute('data-theme', theme);
   localStorage.setItem('appTheme', theme);
-  // 更新按钮图标
   themeToggle.innerText = theme === 'light' ? '🌙' : '☀️';
 }
 
-// 初始化主题（优先本地存储，其次系统）
 if (savedTheme) {
   setTheme(savedTheme);
 } else {
   setTheme(detectSystemTheme());
 }
 
-// 主题切换按钮点击事件
 themeToggle.addEventListener('click', () => {
   const currentTheme = root.getAttribute('data-theme') || 'dark';
   const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
   setTheme(newTheme);
 });
 
-// 修复：替换关键字var为合法的函数名
+// 工具函数：获取CSS变量
 function getCssVar(varName) {
   return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
 }
 
-// ========== 2. 原有功能逻辑 ==========
-const canvas = document.getElementById('canvas')
-const ctx = canvas.getContext('2d')
-
-const startBtn = document.getElementById('startBtn')
+// Canvas核心逻辑 + 移动适配
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const startBtn = document.getElementById('startBtn');
 const settingsBtn = document.getElementById('settingsBtn');
 const modal = document.getElementById('modal');
 const result = document.getElementById('result');
-const prizeModal = document.getElementById('prizeInputModal'); // 修复ID命名冲突
+const prizeModal = document.getElementById('prizeInputModal');
 const prizeInput = document.getElementById('prizeInput');
 
-// 解决Canvas锯齿问题
-const dpr = window.devicePixelRatio || 1
-const canvasWidth = canvas.width
-const canvasHeight = canvas.height
-canvas.width = canvasWidth * dpr
-canvas.height = canvasHeight * dpr
-canvas.style.width = `${canvasWidth}px`
-canvas.style.height = `${canvasHeight}px`
-ctx.scale(dpr, dpr)
+// 5. 移动设备Canvas高清适配：动态计算尺寸
+function resizeCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  const canvasWidth = canvas.offsetWidth;
+  const canvasHeight = canvas.offsetHeight;
+  
+  canvas.width = canvasWidth * dpr;
+  canvas.height = canvasHeight * dpr;
+  ctx.scale(dpr, dpr);
+  
+  // 重置转盘半径
+  radius = Math.min(canvasWidth, canvasHeight) / 2 - 10;
+  drawWheel();
+}
 
-const cx = canvasWidth / 2
-const cy = canvasHeight / 2
-const radius = 140
+// 监听窗口大小变化（适配旋转屏幕）
+window.addEventListener('resize', resizeCanvas);
 
-// 奖品
+// 初始化参数
+let radius = Math.min(canvas.offsetWidth, canvas.offsetHeight) / 2 - 10;
+const cx = canvas.offsetWidth / 2;
+const cy = canvas.offsetHeight / 2;
+
+// 奖品列表
 let prizes = [
   "盖码饭", "开封菜", "金拱门", "达美乐", "胡子大厨", "摸摸家", "陈香贵", 
   "楼下兰州拉面", "塔丝汀", "八嘎King", "椒锅锅"
-]
-// 缓存奖品
-const savedPrizes = localStorage.getItem('prizes')
-if(savedPrizes){
-  prizes = JSON.parse(savedPrizes)
+];
+const savedPrizes = localStorage.getItem('prizes');
+if (savedPrizes) {
+  prizes = JSON.parse(savedPrizes);
 }
 
-// 颜色 - 优化为更协调的配色
-const colors = prizes.map(() => randomColor())
+const colors = prizes.map(() => randomColor());
+let angle = 0;
+let speed = 0;
+let isSpinning = false;
+let targetAngle = 0;
+let slice = Math.PI * 2 / prizes.length;
+const particles = [];
 
-// 转盘状态
-let angle = 0
-let speed = 0
-let isSpinning = false
-let targetAngle = 0
-
-// 每块扇区角度
-let slice = Math.PI * 2 / prizes.length
-
-// 粒子
-const particles = []
+// 6. 移动端粒子数量优化：减少卡顿
+const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+const particleCount = isMobile ? 200 : 400;
 
 class Particle {
   constructor() {
-    this.x = cx
-    this.y = cy
-    const a = Math.random() * Math.PI * 2  // 随机方向
-    const v = Math.random() * 10 + 5       // 优化初速度，更灵动
-    this.vx = Math.cos(a) * v
-    this.vy = Math.sin(a) * v
-    this.life = 120 + Math.random() * 50   // 优化寿命
-    this.r = 2 + Math.random() * 3         // 优化粒子大小
-    // 粒子颜色贴合主题（金色系）
-    this.color = `hsl(${40 + Math.random()*20},100%,${50 + Math.random()*20}%)`
+    this.x = cx;
+    this.y = cy;
+    const a = Math.random() * Math.PI * 2;
+    const v = isMobile ? Math.random() * 6 + 3 : Math.random() * 10 + 5;
+    this.vx = Math.cos(a) * v;
+    this.vy = Math.sin(a) * v;
+    this.life = isMobile ? 80 + Math.random() * 30 : 120 + Math.random() * 50;
+    this.r = isMobile ? 1.5 + Math.random() * 2 : 2 + Math.random() * 3;
+    this.color = `hsl(${40 + Math.random()*20},100%,${50 + Math.random()*20}%)`;
   }
+
   update() {
-    this.x += this.vx
-    this.y += this.vy
-    this.vy += 0.03  // 优化重力，更自然
-    // 添加空气阻力
-    this.vx *= 0.98
-    this.vy *= 0.98
-    this.life--
+    this.x += this.vx;
+    this.y += this.vy;
+    this.vy += isMobile ? 0.02 : 0.03;
+    this.vx *= 0.98;
+    this.vy *= 0.98;
+    this.life--;
   }
+
   draw() {
-    ctx.globalAlpha = Math.max(this.life / 150, 0)
-    ctx.fillStyle = this.color
-    ctx.beginPath()
-    ctx.arc(this.x,this.y,this.r,0,Math.PI*2)
-    ctx.fill()
-    ctx.globalAlpha = 1
+    ctx.globalAlpha = Math.max(this.life / (isMobile ? 100 : 150), 0);
+    ctx.fillStyle = this.color;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
   }
 }
 
-// 优化随机颜色算法，更协调
 function randomColor() {
-  // 限定在暖色系，更贴合抽奖主题
-  const h = 20 + Math.floor(Math.random() * 60)  
-  const s = 80 + Math.random() * 20          
-  const l = 45 + Math.random() * 15          
-  return `hsl(${h},${s}%,${l}%)`
+  const h = 20 + Math.floor(Math.random() * 60);
+  const s = 80 + Math.random() * 20;
+  const l = 45 + Math.random() * 15;
+  return `hsl(${h},${s}%,${l}%)`;
 }
 
-// 绘制转盘 - 全面优化，解决锯齿+提升质感
-function drawWheel() {
-  slice = Math.PI * 2 / prizes.length
-  ctx.clearRect(0, 0, canvasWidth, canvasHeight)
-
-  // 开启抗锯齿
-  ctx.imageSmoothingEnabled = true
-  ctx.imageSmoothingQuality = "high"
-
-  // 绘制转盘外框，提升精致度
-  ctx.save()
-  ctx.translate(cx, cy)
-  ctx.beginPath()
-  ctx.arc(0, 0, radius + 5, 0, Math.PI * 2)
-  ctx.fillStyle = "#111"
-  ctx.fill()
-  ctx.beginPath()
-  ctx.arc(0, 0, radius + 3, 0, Math.PI * 2)
-  ctx.fillStyle = getCssVar('--gold-dark') // 修复：使用合法函数名
-  ctx.fill()
-  ctx.restore()
-
-  ctx.save()
-  ctx.translate(cx, cy)
-  ctx.rotate(angle)
-
-  prizes.forEach((text, i) => {
-    ctx.beginPath()
-    // 绘制扇区，添加渐变提升质感
-    const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, radius)
-    gradient.addColorStop(0, lightenColor(colors[i], 10))
-    gradient.addColorStop(1, colors[i])
-    ctx.fillStyle = gradient
-    ctx.moveTo(0, 0)
-    ctx.arc(0, 0, radius, i * slice, (i + 1) * slice)
-    ctx.fill()
-
-    // 绘制扇区分割线，解决锯齿感
-    ctx.strokeStyle = "#fff"
-    ctx.lineWidth = 1.5
-    ctx.moveTo(0, 0)
-    ctx.lineTo(radius * Math.cos(i * slice), radius * Math.sin(i * slice))
-    ctx.stroke()
-
-    // 文本 - 优化样式，更清晰
-    ctx.save()
-    ctx.rotate(i * slice + slice / 2)
-    // 文本添加描边，更清晰
-    ctx.fillStyle = '#fff'
-    ctx.font = 'bold 16px "Microsoft Yahei", Arial'
-    ctx.textAlign = 'right'
-    ctx.textBaseline = 'middle'
-    // 绘制文字阴影，提升可读性
-    ctx.shadowColor = 'rgba(0,0,0,0.5)'
-    ctx.shadowBlur = 2
-    ctx.shadowOffsetX = 1
-    ctx.shadowOffsetY = 1
-    ctx.fillText(text, radius - 15, 0)
-    ctx.shadowColor = 'transparent'
-    ctx.restore()
-  })
-
-  ctx.restore()
-
-  // 指针优化 - 更精致，添加渐变和发光
-  ctx.save()
-  // 指针呼吸动效（非旋转时）
-  const pointerScale = isSpinning ? 1 : (1 + Math.sin(Date.now() / 500) * 0.05)
-  ctx.translate(cx, cy - radius + 10)
-  ctx.scale(pointerScale, pointerScale)
-  
-  // 指针渐变
-  const pointerGradient = ctx.createLinearGradient(-12, -18, 12, 22)
-  pointerGradient.addColorStop(0, '#fff')
-  pointerGradient.addColorStop(1, getCssVar('--gold-primary')) // 修复：使用合法函数名
-  ctx.fillStyle = pointerGradient
-  ctx.beginPath()
-  ctx.moveTo(0, 22)   // 尖头
-  ctx.lineTo(-12, -18) // 左上
-  ctx.lineTo(12, -18) // 右上
-  ctx.closePath()
-  ctx.fill()
-  
-  // 指针描边，解决锯齿
-  ctx.strokeStyle = getCssVar('--gold-dark') // 修复：使用合法函数名
-  ctx.lineWidth = 1
-  ctx.stroke()
-  
-  // 指针发光效果
-  ctx.shadowColor = getCssVar('--gold-glow') // 修复：使用合法函数名
-  ctx.shadowBlur = 10
-  ctx.fill()
-  ctx.shadowColor = 'transparent'
-  
-  ctx.restore()
-}
-
-// 辅助函数：调整颜色亮度
 function lightenColor(color, percent) {
-  const hsl = color.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/)
+  const hsl = color.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
   if (hsl) {
-    const h = hsl[1]
-    const s = hsl[2]
-    let l = parseInt(hsl[3]) + percent
-    l = Math.min(100, Math.max(0, l))
-    return `hsl(${h},${s}%,${l}%)`
+    const h = hsl[1];
+    const s = hsl[2];
+    let l = parseInt(hsl[3]) + percent;
+    l = Math.min(100, Math.max(0, l));
+    return `hsl(${h},${s}%,${l}%)`;
   }
-  return color
+  return color;
 }
 
-// 动画循环
-function animate() {
-  drawWheel()
+function drawWheel() {
+  slice = Math.PI * 2 / prizes.length;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
 
-  // 粒子
+  // 转盘外框
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.beginPath();
+  ctx.arc(0, 0, radius + 5, 0, Math.PI * 2);
+  ctx.fillStyle = "#111";
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(0, 0, radius + 3, 0, Math.PI * 2);
+  ctx.fillStyle = getCssVar('--gold-dark');
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(angle);
+
+  // 7. 移动端文字大小适配
+  const textSize = isMobile ? 12 : 16;
+  prizes.forEach((text, i) => {
+    ctx.beginPath();
+    const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
+    gradient.addColorStop(0, lightenColor(colors[i], 10));
+    gradient.addColorStop(1, colors[i]);
+    ctx.fillStyle = gradient;
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, radius, i * slice, (i + 1) * slice);
+    ctx.fill();
+
+    ctx.strokeStyle = "#fff";
+    ctx.lineWidth = 1.5;
+    ctx.moveTo(0, 0);
+    ctx.lineTo(radius * Math.cos(i * slice), radius * Math.sin(i * slice));
+    ctx.stroke();
+
+    ctx.save();
+    ctx.rotate(i * slice + slice / 2);
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${textSize}px "Microsoft Yahei", Arial`;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+    ctx.shadowBlur = 2;
+    ctx.shadowOffsetX = 1;
+    ctx.shadowOffsetY = 1;
+    ctx.fillText(text, radius - 15, 0);
+    ctx.shadowColor = 'transparent';
+    ctx.restore();
+  });
+
+  ctx.restore();
+
+  // 指针
+  ctx.save();
+  const pointerScale = isSpinning ? 1 : (1 + Math.sin(Date.now() / 500) * 0.05);
+  ctx.translate(cx, cy - radius + 10);
+  ctx.scale(pointerScale, pointerScale);
+
+  const pointerGradient = ctx.createLinearGradient(-12, -18, 12, 22);
+  pointerGradient.addColorStop(0, '#fff');
+  pointerGradient.addColorStop(1, getCssVar('--gold-primary'));
+  ctx.fillStyle = pointerGradient;
+  ctx.beginPath();
+  ctx.moveTo(0, 22);
+  ctx.lineTo(-12, -18);
+  ctx.lineTo(12, -18);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = getCssVar('--gold-dark');
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  ctx.shadowColor = getCssVar('--gold-glow');
+  ctx.shadowBlur = 10;
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.restore();
+}
+
+function animate() {
+  drawWheel();
+
   particles.forEach(p => {
-    p.update()
-    p.draw()
-  })
+    p.update();
+    p.draw();
+  });
+
   for (let i = particles.length - 1; i >= 0; i--) {
-    if (particles[i].life <= 0) particles.splice(i, 1)
+    if (particles[i].life <= 0) particles.splice(i, 1);
   }
 
   if (isSpinning) {
-    angle += speed
-    speed *= 0.985
-
-    // 接近目标，停止
+    angle += speed;
+    speed *= 0.985;
     if (speed < 0.002) {
-      isSpinning = false
-      explode()
-      setTimeout(showResult, 500) // 延迟更长，粒子效果更完整
+      isSpinning = false;
+      explode();
+      setTimeout(showResult, 500);
     }
   } else {
-    // 静止时轻微旋转，增加灵动性
-    angle += 0.001
+    angle += 0.001;
   }
 
-  requestAnimationFrame(animate)
+  requestAnimationFrame(animate);
 }
 
-// 粒子爆发 - 优化效果
 function explode() {
-  const count = 400 + Math.floor(Math.random() * 200)  // 更多粒子
-  for (let i=0; i<count; i++) particles.push(new Particle())
+  const count = isMobile ? particleCount : particleCount + 200;
+  for (let i = 0; i < count; i++) particles.push(new Particle());
 }
 
-// 显示结果
 function showResult() {
-  const index = getPrizeIndex()
+  const index = getPrizeIndex();
   result.innerText = `${prizes[index]}`;
-  // 弹框显示前添加缩放动画
   modal.classList.add('active');
-  startBtn.disabled=false;
+  startBtn.disabled = false;
 }
 
-// 当前指针方向对应的奖项索引
 function getPrizeIndex() {
-  const slice = Math.PI * 2 / prizes.length
-
-  // 转盘当前角度
-  let normalizedAngle = angle % (Math.PI * 2)
-  if (normalizedAngle < 0) normalizedAngle += Math.PI * 2
-
-  // 箭头在正上方，偏移 -π/2
-  let arrowAngle = (normalizedAngle + Math.PI/2) % (Math.PI*2)
-
-  // 顺时针计算当前扇区
-  let index = Math.floor(arrowAngle / slice)
-
-  // 修正偏移
-  index = (prizes.length - index - 1 + prizes.length) % prizes.length
-
-  return index
+  slice = Math.PI * 2 / prizes.length;
+  let normalizedAngle = angle % (Math.PI * 2);
+  if (normalizedAngle < 0) normalizedAngle += Math.PI * 2;
+  let arrowAngle = (normalizedAngle + Math.PI / 2) % (Math.PI * 2);
+  let index = Math.floor(arrowAngle / slice);
+  index = (prizes.length - index - 1 + prizes.length) % prizes.length;
+  return index;
 }
 
-// 开始抽奖
-startBtn.onclick = () => {
-  if (isSpinning) return
-  startBtn.disabled = true
+startBtn.addEventListener('click', () => {
+  if (isSpinning) return;
+  startBtn.disabled = true;
+  const finalIndex = Math.floor(Math.random() * prizes.length);
+  targetAngle = Math.PI * 2 * 8 + (prizes.length - finalIndex) * slice - slice / 2;
+  speed = isMobile ? 0.35 : 0.4;
+  isSpinning = true;
+});
 
-  // 随机最终奖项
-  const finalIndex = Math.floor(Math.random() * prizes.length)
+// 移动端触摸事件兼容
+startBtn.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  if (isSpinning) return;
+  startBtn.disabled = true;
+  const finalIndex = Math.floor(Math.random() * prizes.length);
+  targetAngle = Math.PI * 2 * 8 + (prizes.length - finalIndex) * slice - slice / 2;
+  speed = isMobile ? 0.35 : 0.4;
+  isSpinning = true;
+});
 
-  targetAngle =
-    Math.PI * 2 * 8 +  // 多转几圈，更有仪式感
-    (prizes.length - finalIndex) * slice -
-    slice / 2
-
-  speed = 0.4 // 更快的初始速度
-  isSpinning = true
-}
-
-// 设置奖品
-settingsBtn.onclick = ()=>{
+settingsBtn.addEventListener('click', () => {
   prizeInput.value = prizes.join('\n');
   prizeModal.classList.add('active');
-}
+});
 
-function savePrizes(){
-  const lines = prizeInput.value.split('\n').map(l=>l.trim()).filter(l=>l);
-  if(lines.length>0){
+function savePrizes() {
+  const lines = prizeInput.value.split('\n').map(l => l.trim()).filter(l => l);
+  if (lines.length > 0) {
     prizes = lines;
-    // 重新生成颜色
-    colors.length = 0
-    colors.push(...prizes.map(() => randomColor()))
-    localStorage.setItem('prizes', JSON.stringify(prizes))
+    colors.length = 0;
+    colors.push(...prizes.map(() => randomColor()));
+    localStorage.setItem('prizes', JSON.stringify(prizes));
   }
   prizeModal.classList.remove('active');
   drawWheel();
 }
 
-function closeModal(){ 
-  modal.classList.remove('active'); 
-  // 关闭后重置粒子
-  particles.length = 0
+function closeModal() {
+  modal.classList.remove('active');
+  particles.length = 0;
 }
-function closePrizeModal(){ prizeModal.classList.remove('active'); }
 
-// 启动
-animate()
+function closePrizeModal() {
+  prizeModal.classList.remove('active');
+}
+
+// 初始化
+resizeCanvas();
+animate();
 </script>
 </body>
 </html>
