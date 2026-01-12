@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Canvas 粒子转盘抽奖</title>
+<style>
+  body {
+    margin: 0;
+    background: radial-gradient(circle, #222, #000);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    color: #fff;
+    font-family: Arial;
+  }
+
+  .container {
+    text-align: center;
+  }
+
+  canvas {
+    display: block;
+    margin: 0 auto;
+  }
+
+  button {
+    margin: 12px 10px;
+    padding: 10px 24px;
+    font-size: 16px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    background: linear-gradient(135deg, #ffcc00, #ff6600);
+    color: #000;
+    box-shadow: 0 0 12px rgba(255,150,0,.8);
+  }
+
+  button:disabled {
+    opacity: .4;
+    cursor: not-allowed;
+  }
+
+  #settingsBtn { position: absolute; top: 10px; right: 0; font-size: 24px; }
+  .modal, .prizeModal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.7);
+    display: none;
+    justify-content: center;
+    align-items: center;
+  }
+  .modal-box, .prizeModal-box {
+    background: #111;
+    padding: 24px 32px;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 0 30px #ffcc00;
+  }
+  textarea { width: 300px; height: 200px; margin-top: 10px; background: #222; color: #fff; border: 1px solid #555; border-radius: 6px; padding: 6px; }
+</style>
+</head>
+
+<body>
+<div class="container">
+  <canvas id="canvas" width="600" height="600"></canvas>
+  <div>
+    <button id="startBtn">开始抽奖</button>
+    <button id="settingsBtn">⚙️</button>
+  </div>
+</div>
+
+
+<!-- 中奖弹框 -->
+<div class="modal" id="modal">
+  <div class="modal-box">
+    <h2>🎉 抽奖结果</h2>
+    <p id="result"></p>
+    <button onclick="closeModal()">确认</button>
+  </div>
+</div>
+
+<!-- 奖品设置弹框 -->
+<div class="prizeModal" id="prizeModal">
+  <div class="prizeModal-box">
+    <h2>配置奖品（每行一个）</h2>
+    <textarea id="prizeInput"></textarea>
+    <br>
+    <button onclick="savePrizes()">保存</button>
+    <button onclick="closePrizeModal()">取消</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas')
+const ctx = canvas.getContext('2d')
+
+const startBtn = document.getElementById('startBtn')
+const settingsBtn = document.getElementById('settingsBtn');
+const modal = document.getElementById('modal');
+const result = document.getElementById('result');
+const prizeModal = document.getElementById('prizeModal');
+const prizeInput = document.getElementById('prizeInput');
+
+const cx = canvas.width / 2
+const cy = canvas.height / 2
+const radius = 140
+
+// 奖品
+let prizes = [
+  "盖码饭", "开封菜", "金拱门", "达美乐", "胡子大厨", "摸摸家", "陈香贵", 
+  "楼下兰州拉面", "塔丝汀", "八嘎King", "椒锅锅"
+]
+// 缓存奖品
+const saved = localStorage.getItem('prizes')
+if(saved){
+  prizes = JSON.parse(saved)
+}
+
+// 颜色
+const colors = prizes.map(() => randomColor())  // 每次重新生成
+
+// 转盘状态
+let angle = 0
+let speed = 0
+let isSpinning = false
+let targetAngle = 0
+
+// 每块扇区角度
+let slice = Math.PI * 2 / prizes.length
+
+// 粒子
+const particles = []
+
+class Particle {
+  constructor() {
+    this.x = cx
+    this.y = cy
+    const a = Math.random() * Math.PI * 2  // 随机方向
+    const v = Math.random() * 8 + 3       // 更大初速度
+    this.vx = Math.cos(a) * v
+    this.vy = Math.sin(a) * v
+    this.life = 90 + Math.random() * 30   // 更长寿命
+    this.r = 3 + Math.random() * 2        // 粒子半径
+    this.color = `hsl(${Math.random()*360},100%,60%)`
+  }
+  update() {
+    this.x += this.vx
+    this.y += this.vy
+    this.vy += 0.05  // 重力
+    this.life--
+  }
+  draw() {
+    ctx.globalAlpha = Math.max(this.life / 120, 0)
+    ctx.fillStyle = this.color
+    ctx.beginPath()
+    ctx.arc(this.x,this.y,this.r,0,Math.PI*2)
+    ctx.fill()
+    ctx.globalAlpha = 1
+  }
+}
+
+function randomColor() {
+  const h = Math.floor(Math.random() * 360)  // 色相 0~360
+  const s = 70 + Math.random() * 30          // 饱和度 70~100%
+  const l = 50 + Math.random() * 10          // 明度 50~60%
+  return `hsl(${h},${s}%,${l}%)`
+}
+
+// 绘制转盘
+function drawWheel() {
+  slice = Math.PI * 2 / prizes.length
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+  ctx.save()
+  ctx.translate(cx, cy)
+  ctx.rotate(angle)
+
+  prizes.forEach((text, i) => {
+    ctx.beginPath()
+    ctx.fillStyle = colors[i]
+    ctx.moveTo(0, 0)
+    ctx.arc(0, 0, radius, i * slice, (i + 1) * slice)
+    ctx.fill()
+
+    // 文本
+    ctx.save()
+    ctx.rotate(i * slice + slice / 2)
+    ctx.fillStyle = '#fff'
+    ctx.font = '16px Arial'
+    ctx.textAlign = 'right'
+    ctx.fillText(text, radius - 10, 5)
+    ctx.restore()
+  })
+
+  ctx.restore()
+
+  // 指针（朝下，指向圆心）
+  ctx.fillStyle = '#ffeb3b'
+  ctx.beginPath()
+  ctx.moveTo(cx, cy - radius + 22)   // 尖头（靠近转盘）
+  ctx.lineTo(cx - 12, cy - radius - 18) // 左上
+  ctx.lineTo(cx + 12, cy - radius - 18) // 右上
+  ctx.closePath()
+  ctx.fill()
+}
+
+// 动画循环
+function animate() {
+  drawWheel()
+
+  // 粒子
+  particles.forEach(p => {
+    p.update()
+    p.draw()
+  })
+  for (let i = particles.length - 1; i >= 0; i--) {
+    if (particles[i].life <= 0) particles.splice(i, 1)
+  }
+
+  if (isSpinning) {
+    angle += speed
+    speed *= 0.985
+
+    // 接近目标，停止
+    if (speed < 0.002) {
+      isSpinning = false
+      explode()
+      
+      setTimeout(showResult, 300)
+    }
+  }
+
+  requestAnimationFrame(animate)
+}
+
+// 粒子爆发
+function explode() {
+  const count = 300 + Math.floor(Math.random() * 200)  // 300~500颗
+  for (let i=0; i<count; i++) particles.push(new Particle())
+}
+
+// 显示结果
+function showResult() {
+  const index = getPrizeIndex()
+  console.log(`获奖索引: ${index}`)
+  // alert(`🎉 GO炫饭：${prizes[index]}`)
+  result.innerText = `GO炫饭：${prizes[index]}`;
+  modal.style.display='flex';
+  startBtn.disabled=false;
+}
+
+// 当前指针方向对应的奖项索引
+function getPrizeIndex() {
+  const slice = Math.PI * 2 / prizes.length
+
+  // 转盘当前角度
+  let normalizedAngle = angle % (Math.PI * 2)
+  if (normalizedAngle < 0) normalizedAngle += Math.PI * 2
+
+  // 箭头在正上方，偏移 -π/2
+  let arrowAngle = (normalizedAngle + Math.PI/2) % (Math.PI*2)
+
+  // 顺时针计算当前扇区
+  let index = Math.floor(arrowAngle / slice)
+
+  // 奖项数组顺序可能与 Canvas 扇区顺序反向
+  // 修正偏移 1 个
+  index = (prizes.length - index - 1 + prizes.length) % prizes.length
+
+  return index
+}
+
+// 开始抽奖
+startBtn.onclick = () => {
+  if (isSpinning) return
+  startBtn.disabled = true
+
+  // 👉 这里可替换为后端返回的 index
+  const finalIndex = Math.floor(Math.random() * prizes.length)
+
+  targetAngle =
+    Math.PI * 2 * 6 +
+    (prizes.length - finalIndex) * slice -
+    slice / 2
+
+  speed = 0.35
+  isSpinning = true
+}
+
+// 设置奖品
+settingsBtn.onclick = ()=>{
+  prizeInput.value = prizes.join('\n');
+  prizeModal.style.display='flex';
+}
+
+function savePrizes(){
+  const lines = prizeInput.value.split('\n').map(l=>l.trim()).filter(l=>l);
+  if(lines.length>0){
+    prizes = lines;
+    localStorage.setItem('prizes', JSON.stringify(prizes))
+  }
+  prizeModal.style.display='none';
+  drawWheel();
+}
+
+function closeModal(){ modal.style.display='none'; }
+function closePrizeModal(){ prizeModal.style.display='none'; }
+
+// 启动
+animate()
+</script>
+</body>
+</html>
