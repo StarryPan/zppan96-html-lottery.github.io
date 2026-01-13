@@ -2,11 +2,9 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<!-- 移动设备核心适配：视口设置 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Canvas粒子转盘抽奖</title>
 <style>
-  /* 基础重置：统一盒模型 + 触摸高亮清除 */
   * {
     margin: 0;
     padding: 0;
@@ -14,9 +12,7 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* 1. 主题变量：暗黑/明亮两套方案 */
   :root {
-    /* 暗黑主题（默认） */
     --modal-overlay: rgba(0, 0, 0, 0.85);
     --modal-bg: #1a1a1a;
     --modal-bg-gradient: linear-gradient(135deg, #1a1a1a, #222);
@@ -34,6 +30,7 @@
     --textarea-bg: #222;
     --textarea-border: #ffc107;
     --transition-base: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    --shadow-soft: 0 0 8px rgba(255,215,0,0.15), 0 0 20px rgba(255,215,0,0.08);
   }
 
   :root[data-theme="light"] {
@@ -53,6 +50,7 @@
     --btn-text: #212529;
     --textarea-bg: #ffffff;
     --textarea-border: #d4a800;
+    --shadow-soft: 0 0 8px rgba(229,194,0,0.15), 0 0 20px rgba(229,194,0,0.08);
   }
 
   body {
@@ -88,7 +86,6 @@
     100% { transform: scale(1.02); }
   }
 
-  /* 2. 移动设备按钮适配：增大触摸区域 */
   .control-btn {
     width: 50px;
     height: 50px;
@@ -105,8 +102,8 @@
     font-size: 24px;
     position: absolute;
     top: 0;
-    /* 移动端防止按钮贴边 */
     z-index: 10;
+    box-shadow: var(--shadow-soft);
   }
 
   #themeToggle {
@@ -117,7 +114,6 @@
     right: 0;
   }
 
-  /* 3. 响应式Canvas：适配移动屏幕 */
   #canvas {
     display: block;
     margin: 0 auto;
@@ -126,12 +122,14 @@
     max-width: 600px;
     max-height: 600px;
     border-radius: 50%;
-    box-shadow: 0 0 30px rgba(255,215,0,0.2), 0 0 60px var(--wheel-shadow);
-    image-rendering: optimizeQuality;
+    box-shadow: 0 0 25px rgba(255,215,0,0.18), 0 0 50px var(--wheel-shadow), var(--shadow-soft);
+    image-rendering: optimizeSpeed;
     image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+    transform: translateZ(0);
+    backface-visibility: hidden;
   }
 
-  /* 开始按钮：移动端增大padding */
   #startBtn {
     margin: 20px auto 0;
     padding: 15px 40px;
@@ -141,13 +139,14 @@
     border: 2px solid var(--gold-primary);
     background: linear-gradient(135deg, var(--gold-primary), var(--gold-tertiary));
     color: var(--btn-text);
-    box-shadow: 0 4px 15px rgba(255,150,0,.8), 0 0 20px rgba(255,215,0,0.3);
+    box-shadow: 0 4px 12px rgba(255,150,0,.6), 0 0 18px rgba(255,215,0,0.25), var(--shadow-soft);
     transition: var(--transition-base);
     position: relative;
     overflow: hidden;
     display: block;
     width: 80%;
     max-width: 300px;
+    transform: translateZ(0);
   }
 
   #startBtn::after {
@@ -157,7 +156,7 @@
     left: -50%;
     width: 200%;
     height: 200%;
-    background: linear-gradient(to right, transparent, rgba(255,255,255,0.2), transparent);
+    background: linear-gradient(to right, transparent, rgba(255,255,255,0.18), transparent);
     transform: rotate(45deg);
     animation: btnShine 3s ease-in-out infinite;
   }
@@ -167,28 +166,112 @@
     100% { transform: rotate(45deg) translateX(100%); }
   }
 
-  textarea {
+  /* ========== 圆形悬浮按钮 + 美化滚动条 ========== */
+  .prize-input-wrapper {
     width: 100%;
     max-width: 320px;
+    margin: 0 auto;
+    position: relative; /* 为按钮绝对定位做容器 */
+  }
+
+  /* 圆形操作按钮 */
+  .prize-ctrl-group {
+    position: absolute;
+    top: -20px; /* 向上偏移，贴边框 */
+    right: 0px; /* 靠右 */
+    display: flex;
+    gap: 8px; /* 按钮间距 */
+    z-index: 1; /* 确保在输入框上方 */
+  }
+
+  .prize-ctrl-btn {
+    width: 24px; /* 圆形直径 */
+    height: 24px;
+    border-radius: 50%; /* 圆形 */
+    background: var(--textarea-bg); /* 和输入框背景一致 */
+    border: 1px solid var(--textarea-border); /* 边框和输入框一致 */
+    color: var(--gold-secondary); /* 金色图标/文字 */
+    font-size: 12px; /* 小字体/图标 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    padding: 0; /* 清除内边距 */
+    margin: 8px 2px !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* 轻微阴影，增加层次感 */
+  }
+
+  .prize-ctrl-btn:hover {
+    background: var(--gold-primary); /* 悬浮金色背景 */
+    color: var(--btn-text); /* 文字反色 */
+    transform: scale(1.1); /* 轻微放大 */
+    box-shadow: 0 0 8px rgba(255,215,0,0.3); /* 金色光晕 */
+  }
+
+  /* 输入框样式 */
+  textarea#prizeInput {
+    width: 100%;
     height: 180px;
-    margin-top: 10px;
     background: var(--textarea-bg);
     color: var(--text-white);
     border: 1px solid var(--textarea-border);
     border-radius: 8px;
-    padding: 12px;
+    padding: 12px 12px 12px 12px; /* 右侧预留按钮空间 */
     font-size: 14px;
     resize: none;
-    transition: var(--transition-base);
-  }
-
-  textarea:focus {
     outline: none;
-    border-color: var(--gold-primary);
-    box-shadow: 0 0 10px rgba(255,215,0,0.3);
+    box-shadow: inset 0 0 4px rgba(0,0,0,0.05);
+    /* 滚动条优化前置：允许滚动 */
+    overflow-y: auto;
   }
 
-  /* 4. 弹窗淡入淡出优化：更丝滑的过渡 */
+  textarea#prizeInput:focus {
+    border-color: var(--gold-primary);
+    box-shadow: 0 0 8px rgba(255,215,0,0.25), inset 0 0 4px rgba(0,0,0,0.05);
+  }
+
+  /* ========== 美化滚动条样式 (Webkit内核) ========== */
+  /* 滚动条整体 */
+  textarea#prizeInput::-webkit-scrollbar {
+    width: 6px; /* 滚动条宽度 */
+    height: 6px;
+  }
+
+  /* 滚动条轨道 */
+  textarea#prizeInput::-webkit-scrollbar-track {
+    background: var(--textarea-bg); /* 和输入框背景一致 */
+    border-radius: 3px; /* 圆角 */
+    margin: 8px 0; /* 上下留空，不贴边 */
+  }
+
+  /* 滚动条滑块 */
+  textarea#prizeInput::-webkit-scrollbar-thumb {
+    background: var(--gold-secondary); /* 金色滑块 */
+    border-radius: 3px; /* 圆角 */
+    transition: all 0.2s ease;
+  }
+
+  /* 滑块悬浮效果 */
+  textarea#prizeInput::-webkit-scrollbar-thumb:hover {
+    background: var(--gold-primary); /* 高亮金色 */
+    box-shadow: 0 0 4px rgba(255,215,0,0.2);
+  }
+
+  /* 滚动条角落 */
+  textarea#prizeInput::-webkit-scrollbar-corner {
+    background: transparent; /* 透明角落 */
+  }
+
+  /* 适配浅色主题的滚动条 */
+  :root[data-theme="light"] textarea#prizeInput::-webkit-scrollbar-thumb {
+    background: var(--gold-secondary);
+  }
+  :root[data-theme="light"] textarea#prizeInput::-webkit-scrollbar-thumb:hover {
+    background: var(--gold-primary);
+  }
+  /* ========== 滚动条美化结束 ========== */
+
   .modal, .prizeModal {
     position: fixed;
     inset: 0;
@@ -197,7 +280,6 @@
     justify-content: center;
     align-items: center;
     z-index: 9999;
-    /* 核心：淡入淡出 + 毛玻璃过渡 */
     transition: opacity 0.5s ease, backdrop-filter 0.5s ease;
     opacity: 0;
     backdrop-filter: blur(0px);
@@ -215,20 +297,20 @@
     padding: 30px 25px;
     border-radius: 20px;
     text-align: center;
-    box-shadow: 0 0 30px var(--gold-primary), 0 0 60px var(--gold-shadow), 0 8px 24px rgba(0, 0, 0, 0.6);
+    box-shadow: 0 0 25px var(--gold-primary), 0 0 50px var(--gold-shadow), 0 8px 20px rgba(0, 0, 0, 0.5), var(--shadow-soft);
     border: 2px solid var(--gold-secondary);
     max-width: 90%;
     width: 380px;
-    /* 弹窗缩放 + 位移过渡 */
     transition: var(--transition-base);
     transform: scale(0.8) translateY(30px);
     position: relative;
     overflow: hidden;
     color: var(--text-white);
+    transform: translateZ(0);
   }
 
   .modal.active .modal-box, .prizeModal.active .prizeModal-box {
-    transform: scale(1.05) translateY(0);
+    transform: scale(1.02) translateY(0);
   }
 
   .modal-box::before, .prizeModal-box::before {
@@ -238,7 +320,7 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background: radial-gradient(circle at top right, rgba(255,215,0,0.1), transparent 70%);
+    background: radial-gradient(circle at top right, rgba(255,215,0,0.08), transparent 70%);
     pointer-events: none;
   }
 
@@ -247,7 +329,7 @@
     font-size: 24px;
     font-weight: 800;
     margin: 0 0 20px 0;
-    text-shadow: 0 0 15px var(--gold-shadow), 0 2px 4px rgba(0,0,0,0.5);
+    text-shadow: 0 0 12px var(--gold-shadow), 0 2px 3px rgba(0,0,0,0.4);
     background: linear-gradient(135deg, var(--gold-primary), var(--gold-tertiary));
     -webkit-background-clip: text;
     background-clip: text;
@@ -267,16 +349,18 @@
     text-stroke: 2px var(--gold-dark);
     animation: breathe 2s infinite alternate ease-in-out;
     letter-spacing: 1px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   @keyframes breathe {
     0% {
       transform: scale(1);
-      text-shadow: 0 0 10px var(--gold-shadow), 0 0 20px var(--gold-glow);
+      text-shadow: 0 0 8px var(--gold-shadow), 0 0 18px var(--gold-glow);
     }
     100% {
-      transform: scale(1.15);
-      text-shadow: 0 0 20px var(--gold-shadow), 0 0 40px var(--gold-glow), 0 0 60px var(--gold-primary);
+      transform: scale(1.12);
+      text-shadow: 0 0 18px var(--gold-shadow), 0 0 35px var(--gold-glow), 0 0 55px var(--gold-primary);
     }
   }
 
@@ -285,25 +369,27 @@
     color: var(--btn-text);
     border: none;
     border-radius: 50px;
-    padding: 12px 30px;
+    padding: 12px 24px;
     font-size: 16px;
     font-weight: 700;
     cursor: pointer;
     transition: var(--transition-base);
-    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
-    margin: 25px 25px;
+    box-shadow: 0 4px 12px rgba(255, 215, 0, 0.35), var(--shadow-soft);
+    margin: 8px 20px;
+    -webkit-font-smoothing: antialiased;
+    transform: translateZ(0);
   }
 
   button:hover:not(:disabled), button:active:not(:disabled) {
     color: #fff;
     background: linear-gradient(135deg, var(--gold-secondary), var(--gold-tertiary));
-    box-shadow: 0 6px 20px rgba(255, 215, 0, 0.6);
-    transform: translateY(-3px);
+    box-shadow: 0 6px 18px rgba(255, 215, 0, 0.5), var(--shadow-soft);
+    transform: translateY(-2px);
   }
 
   button:active:not(:disabled) {
     transform: translateY(-1px);
-    box-shadow: 0 2px 10px rgba(255, 215, 0, 0.4);
+    box-shadow: 0 2px 8px rgba(255, 215, 0, 0.35), var(--shadow-soft);
   }
 
   button:disabled {
@@ -313,7 +399,6 @@
     box-shadow: none !important;
   }
 
-  /* 媒体查询：小屏设备进一步优化 */
   @media screen and (max-width: 375px) {
     #result {
       font-size: 26px;
@@ -324,6 +409,16 @@
     #startBtn {
       padding: 12px 30px;
       font-size: 16px;
+    }
+    /* 移动端适配圆形按钮 */
+    .prize-ctrl-btn {
+      width: 22px;
+      height: 22px;
+      font-size: 11px;
+    }
+    .prize-ctrl-group {
+      top: -10px;
+      right: 10px;
     }
   }
 </style>
@@ -346,11 +441,18 @@
   </div>
 </div>
 
-<!-- 奖品设置弹框 -->
+<!-- 奖品设置弹框（圆形悬浮按钮 + 美化滚动条） -->
 <div class="prizeModal" id="prizeInputModal">
   <div class="prizeModal-box">
-    <h2>🎁 配置奖品（每行一个）</h2>
-    <textarea id="prizeInput" placeholder="请输入奖品名称，每行一个"></textarea>
+    <h2>🎁 配置奖品</h2>
+    <div class="prize-input-wrapper">
+      <!-- 圆形悬浮按钮组 -->
+      <div class="prize-ctrl-group">
+        <button class="prize-ctrl-btn" onclick="clearPrizeInput()" title="清除内容">🗑️</button>
+        <button class="prize-ctrl-btn" onclick="restoreDefaultPrizes()" title="还原默认">🔄</button>
+      </div>
+      <textarea id="prizeInput" placeholder="请输入奖品名称，换行分割"></textarea>
+    </div>
     <br>
     <button onclick="savePrizes()">保存</button>
     <button onclick="closePrizeModal()">取消</button>
@@ -362,6 +464,12 @@
 const root = document.documentElement;
 const themeToggle = document.getElementById('themeToggle');
 const savedTheme = localStorage.getItem('appTheme');
+
+// 存储默认奖品列表（用于还原）
+const DEFAULT_PRIZES = [
+  "盖码饭", "开封菜", "金拱门", "达美乐", "胡子大厨", "摸摸家", "陈香贵", 
+  "楼下兰州拉面", "塔丝汀", "八嘎King", "椒锅锅"
+];
 
 function detectSystemTheme() {
   return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
@@ -390,7 +498,7 @@ function getCssVar(varName) {
   return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
 }
 
-// Canvas核心逻辑 + 移动适配
+// Canvas核心逻辑 + 优化渲染
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const startBtn = document.getElementById('startBtn');
@@ -400,18 +508,22 @@ const result = document.getElementById('result');
 const prizeModal = document.getElementById('prizeInputModal');
 const prizeInput = document.getElementById('prizeInput');
 
-// 5. 移动设备Canvas高清适配：动态计算尺寸
+// 优化：Canvas高清渲染 + 抗锯齿
 function resizeCanvas() {
   const dpr = window.devicePixelRatio || 1;
   const canvasWidth = canvas.offsetWidth;
   const canvasHeight = canvas.offsetHeight;
   
-  canvas.width = canvasWidth * dpr;
-  canvas.height = canvasHeight * dpr;
+  // 优化：整数化尺寸，避免小数像素导致的锯齿
+  canvas.width = Math.floor(canvasWidth * dpr);
+  canvas.height = Math.floor(canvasHeight * dpr);
+  // 强制开启抗锯齿
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high"; // 高画质抗锯齿
   ctx.scale(dpr, dpr);
   
-  // 重置转盘半径
-  radius = Math.min(canvasWidth, canvasHeight) / 2 - 10;
+  // 重置转盘半径（整数化）
+  radius = Math.floor(Math.min(canvasWidth, canvasHeight) / 2 - 10);
   drawWheel();
 }
 
@@ -419,18 +531,22 @@ function resizeCanvas() {
 window.addEventListener('resize', resizeCanvas);
 
 // 初始化参数
-let radius = Math.min(canvas.offsetWidth, canvas.offsetHeight) / 2 - 10;
+let radius = Math.floor(Math.min(canvas.offsetWidth, canvas.offsetHeight) / 2 - 10);
 const cx = canvas.offsetWidth / 2;
 const cy = canvas.offsetHeight / 2;
 
 // 奖品列表
-let prizes = [
-  "盖码饭", "开封菜", "金拱门", "达美乐", "胡子大厨", "摸摸家", "陈香贵", 
-  "楼下兰州拉面", "塔丝汀", "八嘎King", "椒锅锅"
-];
+let prizes = [...DEFAULT_PRIZES]; // 深拷贝默认列表
 const savedPrizes = localStorage.getItem('prizes');
 if (savedPrizes) {
-  prizes = JSON.parse(savedPrizes);
+  try {
+    const parsed = JSON.parse(savedPrizes);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      prizes = parsed;
+    }
+  } catch (e) {
+    prizes = [...DEFAULT_PRIZES]; // 解析失败则用默认值
+  }
 }
 
 const colors = prizes.map(() => randomColor());
@@ -441,34 +557,36 @@ let targetAngle = 0;
 let slice = Math.PI * 2 / prizes.length;
 const particles = [];
 
-// 6. 移动端粒子数量优化：减少卡顿
+// 移动端粒子数量优化：减少卡顿
 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-const particleCount = isMobile ? 200 : 400;
+const particleCount = isMobile ? 180 : 350; // 优化：减少粒子数量，提升流畅度
 
 class Particle {
   constructor() {
     this.x = cx;
     this.y = cy;
     const a = Math.random() * Math.PI * 2;
-    const v = isMobile ? Math.random() * 6 + 3 : Math.random() * 10 + 5;
+    const v = isMobile ? Math.random() * 5 + 2 : Math.random() * 8 + 4; // 优化：粒子速度更柔和
     this.vx = Math.cos(a) * v;
     this.vy = Math.sin(a) * v;
-    this.life = isMobile ? 80 + Math.random() * 30 : 120 + Math.random() * 50;
-    this.r = isMobile ? 1.5 + Math.random() * 2 : 2 + Math.random() * 3;
+    this.life = isMobile ? 70 + Math.random() * 20 : 100 + Math.random() * 30; // 优化：生命周期更合理
+    this.r = isMobile ? 1.2 + Math.random() * 1.5 : 1.8 + Math.random() * 2.5; // 优化：粒子尺寸更小，避免马赛克
     this.color = `hsl(${40 + Math.random()*20},100%,${50 + Math.random()*20}%)`;
   }
 
   update() {
     this.x += this.vx;
     this.y += this.vy;
-    this.vy += isMobile ? 0.02 : 0.03;
-    this.vx *= 0.98;
-    this.vy *= 0.98;
+    this.vy += isMobile ? 0.018 : 0.025; // 优化：重力更柔和
+    this.vx *= 0.982; // 优化：减速更平滑
+    this.vy *= 0.982;
     this.life--;
   }
 
   draw() {
-    ctx.globalAlpha = Math.max(this.life / (isMobile ? 100 : 150), 0);
+    // 优化：粒子透明度过渡更平滑
+    const alpha = Math.max(this.life / (isMobile ? 90 : 130), 0);
+    ctx.globalAlpha = alpha;
     ctx.fillStyle = this.color;
     ctx.beginPath();
     ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
@@ -498,11 +616,12 @@ function lightenColor(color, percent) {
 
 function drawWheel() {
   slice = Math.PI * 2 / prizes.length;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  // 优化：清除画布时使用整数坐标，避免模糊
+  ctx.clearRect(0, 0, Math.floor(canvas.width), Math.floor(canvas.height));
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
 
-  // 转盘外框
+  // 转盘外框（优化：线条更细腻）
   ctx.save();
   ctx.translate(cx, cy);
   ctx.beginPath();
@@ -519,8 +638,9 @@ function drawWheel() {
   ctx.translate(cx, cy);
   ctx.rotate(angle);
 
-  // 7. 移动端文字大小适配
-  const textSize = isMobile ? 12 : 16;
+  // 优化：文字大小适配更精准
+  const textSize = isMobile ? Math.max(10, Math.floor(12 * (radius / 280))) : Math.max(14, Math.floor(16 * (radius / 280)));
+  
   prizes.forEach((text, i) => {
     ctx.beginPath();
     const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
@@ -531,8 +651,9 @@ function drawWheel() {
     ctx.arc(0, 0, radius, i * slice, (i + 1) * slice);
     ctx.fill();
 
+    // 优化：分割线更细，抗锯齿
     ctx.strokeStyle = "#fff";
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 1.2; // 优化：线条宽度更细腻
     ctx.moveTo(0, 0);
     ctx.lineTo(radius * Math.cos(i * slice), radius * Math.sin(i * slice));
     ctx.stroke();
@@ -543,20 +664,22 @@ function drawWheel() {
     ctx.font = `bold ${textSize}px "Microsoft Yahei", Arial`;
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
-    ctx.shadowColor = 'rgba(0,0,0,0.5)';
-    ctx.shadowBlur = 2;
-    ctx.shadowOffsetX = 1;
-    ctx.shadowOffsetY = 1;
-    ctx.fillText(text, radius - 15, 0);
+    // 优化：文字阴影更柔和
+    ctx.shadowColor = 'rgba(0,0,0,0.4)';
+    ctx.shadowBlur = 1.5;
+    ctx.shadowOffsetX = 0.8;
+    ctx.shadowOffsetY = 0.8;
+    // 优化：文字位置更合理，避免溢出
+    ctx.fillText(text, radius - 12, 0);
     ctx.shadowColor = 'transparent';
     ctx.restore();
   });
 
   ctx.restore();
 
-  // 指针
+  // 指针（优化：渲染更细腻）
   ctx.save();
-  const pointerScale = isSpinning ? 1 : (1 + Math.sin(Date.now() / 500) * 0.05);
+  const pointerScale = isSpinning ? 1 : (1 + Math.sin(Date.now() / 500) * 0.04); // 优化：呼吸幅度更小，更自然
   ctx.translate(cx, cy - radius + 10);
   ctx.scale(pointerScale, pointerScale);
 
@@ -575,8 +698,9 @@ function drawWheel() {
   ctx.lineWidth = 1;
   ctx.stroke();
 
+  // 优化：指针泛光更柔和
   ctx.shadowColor = getCssVar('--gold-glow');
-  ctx.shadowBlur = 10;
+  ctx.shadowBlur = 8; // 优化：阴影模糊度降低，避免马赛克
   ctx.fill();
   ctx.shadowColor = 'transparent';
   ctx.restore();
@@ -596,21 +720,21 @@ function animate() {
 
   if (isSpinning) {
     angle += speed;
-    speed *= 0.985;
-    if (speed < 0.002) {
+    speed *= 0.988; // 优化：减速曲线更平滑
+    if (speed < 0.0015) { // 优化：停止阈值更精准
       isSpinning = false;
       explode();
       setTimeout(showResult, 500);
     }
   } else {
-    angle += 0.001;
+    angle += 0.0008; // 优化：闲置旋转速度更慢，更自然
   }
 
   requestAnimationFrame(animate);
 }
 
 function explode() {
-  const count = isMobile ? particleCount : particleCount + 200;
+  const count = isMobile ? particleCount : particleCount + 150; // 优化：减少粒子数量，提升流畅度
   for (let i = 0; i < count; i++) particles.push(new Particle());
 }
 
@@ -636,7 +760,7 @@ startBtn.addEventListener('click', () => {
   startBtn.disabled = true;
   const finalIndex = Math.floor(Math.random() * prizes.length);
   targetAngle = Math.PI * 2 * 8 + (prizes.length - finalIndex) * slice - slice / 2;
-  speed = isMobile ? 0.35 : 0.4;
+  speed = isMobile ? 0.32 : 0.38; // 优化：旋转速度更柔和
   isSpinning = true;
 });
 
@@ -647,7 +771,7 @@ startBtn.addEventListener('touchstart', (e) => {
   startBtn.disabled = true;
   const finalIndex = Math.floor(Math.random() * prizes.length);
   targetAngle = Math.PI * 2 * 8 + (prizes.length - finalIndex) * slice - slice / 2;
-  speed = isMobile ? 0.35 : 0.4;
+  speed = isMobile ? 0.32 : 0.38;
   isSpinning = true;
 });
 
@@ -655,6 +779,18 @@ settingsBtn.addEventListener('click', () => {
   prizeInput.value = prizes.join('\n');
   prizeModal.classList.add('active');
 });
+
+// 清除textarea内容
+function clearPrizeInput() {
+  prizeInput.value = '';
+  prizeInput.focus();
+}
+
+// 还原默认奖品内容
+function restoreDefaultPrizes() {
+  prizeInput.value = DEFAULT_PRIZES.join('\n');
+  prizeInput.focus();
+}
 
 function savePrizes() {
   const lines = prizeInput.value.split('\n').map(l => l.trim()).filter(l => l);
